@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Rock Fishing</title>
+<link rel="manifest" href="manifest.webmanifest" />
+<meta name="theme-color" content="#0b3d62" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Rock Fishing" />
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+<link rel="icon" href="icons/icon-192.png" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<header class="topbar">
+  <h1>🎣 Rock Fishing</h1>
+  <div id="selectedSpotLabel" class="selected-spot">No spot selected</div>
+</header>
+
+<main>
+  <section id="tab-map" class="tab active">
+    <div id="map"></div>
+    <div class="map-actions">
+      <button id="addSpotBtn" class="btn">＋ Add custom spot</button>
+    </div>
+  </section>
+
+  <section id="tab-conditions" class="tab">
+    <div id="conditionsHeader" class="card">
+      <div class="row">
+        <h2 id="condSpotName">Pick a spot</h2>
+        <button id="refreshBtn" class="btn small">Refresh</button>
+      </div>
+      <div id="condUpdated" class="muted small"></div>
+    </div>
+
+    <div id="safetyCard" class="card safety">
+      <div class="score-row">
+        <div id="scoreValue" class="score">--</div>
+        <div class="score-meta">
+          <div id="scoreBand" class="band">—</div>
+          <div class="muted small">/ 100</div>
+        </div>
+      </div>
+      <ul id="scoreFactors" class="factors"></ul>
+    </div>
+
+    <div class="grid">
+      <div class="card stat"><div class="stat-label">Swell</div><div id="statSwell" class="stat-value">—</div></div>
+      <div class="card stat"><div class="stat-label">Wave period</div><div id="statPeriod" class="stat-value">—</div></div>
+      <div class="card stat"><div class="stat-label">Wave height</div><div id="statWave" class="stat-value">—</div></div>
+      <div class="card stat"><div class="stat-label">Wind</div><div id="statWind" class="stat-value">—</div></div>
+      <div class="card stat"><div class="stat-label">Tide</div><div id="statTide" class="stat-value">—</div></div>
+      <div class="card stat"><div class="stat-label">Tide trend</div><div id="statTideTrend" class="stat-value">—</div></div>
+    </div>
+  </section>
+
+  <section id="tab-catches" class="tab">
+    <div class="card">
+      <h2>Log a catch</h2>
+      <form id="catchForm" class="form">
+        <label>Spot
+          <select id="catchSpot" required></select>
+        </label>
+        <label>Species
+          <input id="catchSpecies" type="text" placeholder="Drummer, Tailor, Bream…" required />
+        </label>
+        <div class="row two">
+          <label>Length (cm)
+            <input id="catchLength" type="number" step="0.1" min="0" />
+          </label>
+          <label>Weight (kg)
+            <input id="catchWeight" type="number" step="0.01" min="0" />
+          </label>
+        </div>
+        <label>Bait / lure
+          <input id="catchBait" type="text" />
+        </label>
+        <label>Notes
+          <textarea id="catchNotes" rows="2"></textarea>
+        </label>
+        <label>Photo
+          <input id="catchPhoto" type="file" accept="image/*" capture="environment" />
+        </label>
+        <button class="btn primary" type="submit">Save catch</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <h2>History</h2>
+        <input id="catchFilter" type="search" placeholder="Filter…" />
+      </div>
+      <div id="catchList" class="catch-list"></div>
+    </div>
+  </section>
+</main>
+
+<nav class="tabbar">
+  <button class="tab-btn active" data-tab="map">🗺️<span>Map</span></button>
+  <button class="tab-btn" data-tab="conditions">🌊<span>Conditions</span></button>
+  <button class="tab-btn" data-tab="catches">🐟<span>Catches</span></button>
+</nav>
+
+<dialog id="addSpotDialog">
+  <form method="dialog" id="addSpotForm" class="form">
+    <h2>Add a spot</h2>
+    <label>Name <input id="newSpotName" required /></label>
+    <div class="row two">
+      <label>Latitude <input id="newSpotLat" type="number" step="0.0001" required /></label>
+      <label>Longitude <input id="newSpotLon" type="number" step="0.0001" required /></label>
+    </div>
+    <p class="muted small">Tip: long-press the map to drop a pin and prefill these.</p>
+    <div class="row">
+      <button value="cancel" class="btn">Cancel</button>
+      <button id="newSpotSave" value="default" class="btn primary">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="spots.js"></script>
+<script src="api.js"></script>
+<script src="safety.js"></script>
+<script src="map.js"></script>
+<script src="catches.js"></script>
+<script src="app.js"></script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
+</script>
+</body>
+</html>
