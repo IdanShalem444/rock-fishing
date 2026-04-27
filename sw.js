@@ -1,4 +1,4 @@
-const CACHE = 'rfa-v2';
+const CACHE = 'rfa-v3';
 const SHELL = [
   './',
   './index.html',

@@ -35,11 +35,15 @@ function renderCatchList(filter = '') {
       || (c.spotName || '').toLowerCase().includes(q);
   });
   if (!items.length) {
-    list.innerHTML = '<p class="muted small">No catches yet. Land one and log it 🎣</p>';
+    list.innerHTML = `<div class="empty">
+      <div class="em-glyph">🎣</div>
+      <div>No catches yet — land one and log it.</div>
+    </div>`;
     return;
   }
   list.innerHTML = items.map(c => {
-    const date = new Date(c.at).toLocaleString();
+    const date = new Date(c.at).toLocaleDateString([], { day: 'numeric', month: 'short' })
+      + ' · ' + new Date(c.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
     const len = c.length ? `${c.length} cm` : '';
     const wt = c.weight ? `${c.weight} kg` : '';
     const size = [len, wt].filter(Boolean).join(' · ');

@@ -1,14 +1,14 @@
-// SVG sparkline / area chart rendering. All charts render into a fixed
-// 600 x 110 viewBox and stretch via preserveAspectRatio="none".
+// ============================================================
+// Charts: Tide area chart + horizontal hourly strip renderer.
+// ============================================================
 const CHART_W = 600;
-const CHART_H = 110;
-const PAD_X = 8;
-const PAD_TOP = 14;
-const PAD_BOT = 18;
+const CHART_H = 130;
+const PAD_X = 10;
+const PAD_TOP = 18;
+const PAD_BOT = 22;
 
 function fmtTime(iso) {
-  const d = new Date(iso);
-  return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).replace(' ', '');
+  return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).replace(' ', '');
 }
 function fmtHourLabel(iso) {
   const d = new Date(iso);
@@ -18,12 +18,8 @@ function fmtHourLabel(iso) {
   return h < 12 ? `${h}a` : `${h - 12}p`;
 }
 
-function buildPath(points, smooth = true) {
+function buildSmoothPath(points) {
   if (!points.length) return '';
-  if (!smooth) {
-    return points.map((p, i) => (i ? 'L' : 'M') + p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' ');
-  }
-  // monotone-ish cubic
   let d = `M${points[0].x.toFixed(1)},${points[0].y.toFixed(1)}`;
   for (let i = 1; i < points.length; i++) {
     const p0 = points[i - 1], p1 = points[i];
@@ -33,9 +29,10 @@ function buildPath(points, smooth = true) {
   return d;
 }
 
+// ---- Tide chart ---------------------------------------------------------
 function renderTideChart(svgEl, series, extrema) {
   if (!series || !series.length) {
-    svgEl.innerHTML = '<text class="label" x="10" y="60">No tide data</text>';
+    svgEl.innerHTML = '<text x="10" y="60" fill="rgba(255,255,255,0.4)" font-size="13">No tide data yet — pick a spot.</text>';
     return;
   }
   const values = series.map(s => s.v).filter(v => v != null);
@@ -43,91 +40,82 @@ function renderTideChart(svgEl, series, extrema) {
   const range = Math.max(0.1, max - min);
   const innerH = CHART_H - PAD_TOP - PAD_BOT;
   const innerW = CHART_W - PAD_X * 2;
+  const baseY = PAD_TOP + innerH;
 
   const pts = series.map((s, i) => ({
     x: PAD_X + (i / (series.length - 1)) * innerW,
     y: PAD_TOP + (1 - (s.v - min) / range) * innerH,
     t: s.t, v: s.v,
   }));
+  const linePath = buildSmoothPath(pts);
+  const areaPath = linePath
+    + ` L${pts[pts.length - 1].x.toFixed(1)},${baseY}`
+    + ` L${pts[0].x.toFixed(1)},${baseY} Z`;
 
-  const baseY = PAD_TOP + innerH;
-  const areaPath = buildPath(pts) + ` L${pts[pts.length - 1].x.toFixed(1)},${baseY} L${pts[0].x.toFixed(1)},${baseY} Z`;
-  const linePath = buildPath(pts);
-
-  // Gridlines + hour labels every 6h
-  const grid = [];
+  // Hour grid lines + labels every 6h
+  let grid = '';
   for (let i = 0; i < series.length; i += 6) {
     const x = PAD_X + (i / (series.length - 1)) * innerW;
-    grid.push(`<line class="gridline" x1="${x.toFixed(1)}" y1="${PAD_TOP}" x2="${x.toFixed(1)}" y2="${baseY}"/>`);
-    grid.push(`<text class="label" x="${x.toFixed(1)}" y="${(baseY + 12).toFixed(1)}" text-anchor="middle">${fmtHourLabel(series[i].t)}</text>`);
+    grid += `<line x1="${x.toFixed(1)}" y1="${PAD_TOP}" x2="${x.toFixed(1)}" y2="${baseY}"
+              stroke="rgba(255,255,255,0.06)" stroke-width="1"/>`;
+    grid += `<text x="${x.toFixed(1)}" y="${(baseY + 14).toFixed(1)}"
+              text-anchor="middle" fill="rgba(255,255,255,0.5)" font-size="10">${fmtHourLabel(series[i].t)}</text>`;
   }
 
-  // High/Low markers
-  const extrSvg = (extrema || []).map(e => {
-    const seriesIdx = series.findIndex(s => s.t === e.t);
-    if (seriesIdx < 0) return '';
-    const x = PAD_X + (seriesIdx / (series.length - 1)) * innerW;
+  // High / low markers
+  const extr = (extrema || []).map(e => {
+    const idx = series.findIndex(s => s.t === e.t);
+    if (idx < 0) return '';
+    const x = PAD_X + (idx / (series.length - 1)) * innerW;
     const y = PAD_TOP + (1 - (e.value - min) / range) * innerH;
-    const labelY = e.type === 'high' ? y - 8 : y + 14;
-    const label = `${e.type === 'high' ? 'H' : 'L'} ${fmtTime(e.t)}`;
-    return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.5"/>
-            <text x="${x.toFixed(1)}" y="${labelY.toFixed(1)}" text-anchor="middle">${label}</text>`;
+    const labelY = e.type === 'high' ? y - 10 : y + 18;
+    const color = e.type === 'high' ? '#4cc2ff' : '#6ee7b7';
+    return `
+      <circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" fill="${color}" stroke="#0a1a30" stroke-width="2"/>
+      <text x="${x.toFixed(1)}" y="${labelY.toFixed(1)}" text-anchor="middle"
+            fill="#ffffff" font-size="10" font-weight="600">
+        ${e.type === 'high' ? 'H' : 'L'} ${fmtTime(e.t)}
+      </text>`;
   }).join('');
+
+  // Now indicator
+  const nowX = pts[0].x.toFixed(1);
+  const nowY = pts[0].y.toFixed(1);
 
   svgEl.setAttribute('viewBox', `0 0 ${CHART_W} ${CHART_H}`);
   svgEl.innerHTML = `
     <defs>
-      <linearGradient id="tideGradient" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#4cc2ff" stop-opacity="0.55"/>
+      <linearGradient id="tideFill" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#4cc2ff" stop-opacity="0.45"/>
         <stop offset="100%" stop-color="#4cc2ff" stop-opacity="0"/>
       </linearGradient>
     </defs>
-    ${grid.join('')}
-    <path class="area" d="${areaPath}"/>
-    <path class="line" d="${linePath}"/>
-    <line class="now-line" x1="${pts[0].x.toFixed(1)}" y1="${PAD_TOP}" x2="${pts[0].x.toFixed(1)}" y2="${baseY}"/>
-    <circle class="now-dot" cx="${pts[0].x.toFixed(1)}" cy="${pts[0].y.toFixed(1)}" r="4"/>
-    <g class="extrema">${extrSvg}</g>
+    ${grid}
+    <path d="${areaPath}" fill="url(#tideFill)"/>
+    <path d="${linePath}" fill="none" stroke="#4cc2ff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <line x1="${nowX}" y1="${PAD_TOP}" x2="${nowX}" y2="${baseY}"
+          stroke="rgba(255,255,255,0.6)" stroke-width="1" stroke-dasharray="3 3"/>
+    <circle cx="${nowX}" cy="${nowY}" r="5" fill="#ffffff"/>
+    <text x="${nowX}" y="${(PAD_TOP - 4).toFixed(1)}" text-anchor="middle"
+          fill="#ffffff" font-size="10" font-weight="600">NOW</text>
+    ${extr}
   `;
 }
 
-function renderBarChart(svgEl, series, accessor, color, unit) {
+// ---- Hourly horizontal strip ------------------------------------------
+function renderHourlyStrip(container, series, accessor, fmt, glyphForValue) {
   if (!series || !series.length) {
-    svgEl.innerHTML = '<text class="label" x="10" y="60">No data</text>';
+    container.innerHTML = '<div class="empty" style="padding:14px 4px;">No data yet</div>';
     return;
   }
-  const values = series.map(accessor).filter(v => v != null);
-  const max = Math.max(0.1, ...values);
-  const innerH = CHART_H - PAD_TOP - PAD_BOT;
-  const innerW = CHART_W - PAD_X * 2;
-  const baseY = PAD_TOP + innerH;
-  const barW = (innerW / series.length) * 0.7;
-  const gap = (innerW / series.length) * 0.3;
-
-  const bars = series.map((s, i) => {
-    const v = accessor(s) ?? 0;
-    const h = (v / max) * innerH;
-    const x = PAD_X + i * (barW + gap) + gap / 2;
-    const y = baseY - h;
-    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}"
-              rx="3" fill="${color}" opacity="${i === 0 ? 1 : 0.55 + 0.4 * (1 - i / series.length)}"/>`;
+  container.innerHTML = series.map((s, i) => {
+    const v = accessor(s);
+    const time = i === 0 ? 'Now' : fmtHourLabel(s.t);
+    const glyph = glyphForValue ? glyphForValue(s, v) : '';
+    return `<div class="hour ${i === 0 ? 'now' : ''}">
+      <div class="h-time">${time}</div>
+      <div class="h-glyph">${glyph}</div>
+      <div class="h-val">${fmt(v)}</div>
+    </div>`;
   }).join('');
-
-  const labels = series.map((s, i) => {
-    if (i % 3 !== 0 && i !== series.length - 1) return '';
-    const x = PAD_X + i * (barW + gap) + gap / 2 + barW / 2;
-    return `<text class="label" x="${x.toFixed(1)}" y="${(baseY + 12).toFixed(1)}" text-anchor="middle">${fmtHourLabel(s.t)}</text>`;
-  }).join('');
-
-  // value label on the first (current) bar
-  const firstV = accessor(series[0]);
-  const firstX = PAD_X + barW / 2 + gap / 2;
-  const firstH = (firstV / max) * innerH;
-  const firstY = baseY - firstH - 4;
-  const valLabel = firstV != null
-    ? `<text class="label" x="${firstX.toFixed(1)}" y="${firstY.toFixed(1)}" text-anchor="middle" style="fill: var(--ink); font-weight: 600;">${firstV.toFixed(1)}${unit}</text>`
-    : '';
-
-  svgEl.setAttribute('viewBox', `0 0 ${CHART_W} ${CHART_H}`);
-  svgEl.innerHTML = bars + labels + valLabel;
 }
