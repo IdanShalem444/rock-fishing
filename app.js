@@ -48,34 +48,102 @@ async function refreshConditions() {
     const c = await fetchConditions(spot);
     renderConditions(c);
   } catch (e) {
-    updated.textContent = 'Couldn\'t fetch — showing last known data.';
+    updated.textContent = "Couldn't fetch — showing last known data.";
   }
 }
 
-function renderConditions(c) {
-  const fmt = (v, unit, dp = 1) => v == null ? '—' : `${v.toFixed(dp)} ${unit}`;
-  document.getElementById('statSwell').textContent =
-    c.swellHeight == null ? '—' : `${c.swellHeight.toFixed(1)} m ${compass(c.swellDirection)}`;
-  document.getElementById('statPeriod').textContent = fmt(c.swellPeriod ?? c.wavePeriod, 's', 0);
-  document.getElementById('statWave').textContent = fmt(c.waveHeight, 'm');
-  document.getElementById('statWind').textContent =
-    c.windSpeed == null ? '—' : `${c.windSpeed.toFixed(0)} km/h ${compass(c.windDirection)}`
-      + (c.windGust ? ` (g ${c.windGust.toFixed(0)})` : '');
-  document.getElementById('statTide').textContent = fmt(c.tide, 'm', 2);
-  document.getElementById('statTideTrend').textContent =
-    c.tideTrend == null ? '—' : `${c.tideTrend > 0 ? '↑ rising' : '↓ falling'} ${Math.abs(c.tideTrend).toFixed(2)} m/h`;
+function fmtSunTime(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
 
+function renderConditions(c) {
+  // Stat tiles
+  document.getElementById('statSwell').textContent =
+    c.swellHeight == null ? '—' : `${c.swellHeight.toFixed(1)} m`;
+  document.getElementById('statSwellSub').textContent =
+    c.swellDirection == null ? '' : `From ${compass(c.swellDirection)} (${Math.round(c.swellDirection)}°)`;
+
+  const period = c.swellPeriod ?? c.wavePeriod;
+  document.getElementById('statPeriod').textContent =
+    period == null ? '—' : `${period.toFixed(0)} s`;
+
+  document.getElementById('statWind').textContent =
+    c.windSpeed == null ? '—' : `${c.windSpeed.toFixed(0)} km/h`;
+  document.getElementById('statWindSub').textContent =
+    c.windDirection == null ? '' :
+    `From ${compass(c.windDirection)}` + (c.windGust ? ` · gust ${c.windGust.toFixed(0)}` : '');
+
+  document.getElementById('statWave').textContent =
+    c.waveHeight == null ? '—' : `${c.waveHeight.toFixed(1)} m`;
+  document.getElementById('statWaveSub').textContent = 'Combined sea state';
+
+  document.getElementById('statTide').textContent =
+    c.tide == null ? '—' : `${c.tide >= 0 ? '+' : ''}${c.tide.toFixed(2)} m`;
+  document.getElementById('statTideSub').textContent = 'Relative to mean sea level';
+
+  document.getElementById('statTideTrend').textContent =
+    c.tideTrend == null ? '—'
+      : `${c.tideTrend > 0 ? '↑ Rising' : '↓ Falling'} ${Math.abs(c.tideTrend).toFixed(2)} m/h`;
+
+  // Sun chips
+  const sunrise = c.sunrise ? new Date(c.sunrise) : null;
+  const sunset = c.sunset ? new Date(c.sunset) : null;
+  document.getElementById('sunriseChip').textContent = '🌅 ' + fmtSunTime(c.sunrise);
+  document.getElementById('sunsetChip').textContent = '🌇 ' + fmtSunTime(c.sunset);
+  if (sunrise && sunset) {
+    const mins = Math.round((sunset - sunrise) / 60000);
+    const h = Math.floor(mins / 60), m = mins % 60;
+    document.getElementById('dayLengthChip').textContent = `⏱ ${h}h ${m}m daylight`;
+  } else {
+    document.getElementById('dayLengthChip').textContent = '⏱ —';
+  }
+
+  // Charts
+  renderTideChart(document.getElementById('tideChart'), c.tideSeries, c.tideExtrema);
+  const tideHi = (c.tideExtrema || []).filter(e => e.type === 'high');
+  const tideLo = (c.tideExtrema || []).filter(e => e.type === 'low');
+  document.getElementById('tideLegend').textContent =
+    `${tideHi.length} high · ${tideLo.length} low`;
+  document.getElementById('tideSummary').innerHTML = (c.tideExtrema || [])
+    .slice(0, 4)
+    .map(e => `<span>${e.type === 'high' ? '⬆ High' : '⬇ Low'} <b>${new Date(e.t).toLocaleTimeString([], {hour:'numeric', minute:'2-digit'})}</b> · ${e.value.toFixed(2)} m</span>`)
+    .join('');
+
+  renderBarChart(document.getElementById('swellChart'), c.swellSeries, s => s.v, '#4cc2ff', 'm');
+  const swellMax = Math.max(...(c.swellSeries || []).map(s => s.v ?? 0));
+  document.getElementById('swellLegend').textContent =
+    c.swellSeries?.length ? `peak ${swellMax.toFixed(1)} m` : '—';
+
+  renderBarChart(document.getElementById('windChart'), c.windSeries, s => s.v, '#6ee7b7', 'km/h');
+  const windMax = Math.max(...(c.windSeries || []).map(s => s.v ?? 0));
+  document.getElementById('windLegend').textContent =
+    c.windSeries?.length ? `peak ${windMax.toFixed(0)} km/h` : '—';
+
+  // Safety score + ring
   const s = computeSafety(c);
+  const ringEl = document.getElementById('scoreBar');
+  const circumference = 2 * Math.PI * 52;
+  ringEl.setAttribute('stroke-dasharray', circumference.toFixed(2));
+  ringEl.setAttribute('stroke-dashoffset', (circumference * (1 - s.score / 100)).toFixed(2));
+  const ringColor = {
+    safe: 'var(--safe)', caution: 'var(--caution)',
+    danger: 'var(--danger)', bad: 'var(--bad)'
+  }[s.klass];
+  ringEl.setAttribute('stroke', ringColor);
+
   document.getElementById('scoreValue').textContent = s.score;
   const band = document.getElementById('scoreBand');
   band.textContent = s.band;
   band.className = 'band ' + s.klass;
+  document.getElementById('scoreHeadline').textContent = s.headline;
+
   document.getElementById('scoreFactors').innerHTML = s.factors.map(f =>
     `<li><span>${f.label}</span><span class="${f.delta < 0 ? 'neg' : 'ok'}">${f.delta < 0 ? f.delta : '✓'}</span></li>`
   ).join('');
 
   document.getElementById('condUpdated').textContent =
-    'Updated ' + new Date(c.fetchedAt).toLocaleTimeString();
+    'Updated ' + new Date(c.fetchedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
 function populateCatchSpotOptions() {

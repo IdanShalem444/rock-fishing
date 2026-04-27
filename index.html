@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Rock Fishing</title>
 <link rel="manifest" href="manifest.webmanifest" />
-<meta name="theme-color" content="#0b3d62" />
+<meta name="theme-color" content="#0a1726" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="Rock Fishing" />
@@ -17,11 +17,12 @@
 </head>
 <body>
 <header class="topbar">
-  <h1>🎣 Rock Fishing</h1>
+  <h1><span aria-hidden="true">🎣</span> Rock Fishing</h1>
   <div id="selectedSpotLabel" class="selected-spot">No spot selected</div>
 </header>
 
 <main>
+  <!-- MAP -->
   <section id="tab-map" class="tab active">
     <div id="map"></div>
     <div class="map-actions">
@@ -29,36 +30,113 @@
     </div>
   </section>
 
+  <!-- CONDITIONS -->
   <section id="tab-conditions" class="tab">
-    <div id="conditionsHeader" class="card">
+    <div class="card">
       <div class="row">
-        <h2 id="condSpotName">Pick a spot</h2>
-        <button id="refreshBtn" class="btn small">Refresh</button>
+        <div>
+          <h2 style="margin: 0; text-transform: none; font-size: 18px; color: var(--ink); letter-spacing: -0.01em;">
+            <span id="condSpotName">Pick a spot</span>
+          </h2>
+          <div id="condUpdated" class="muted small" style="margin-top: 4px;"></div>
+        </div>
+        <button id="refreshBtn" class="btn small">↻ Refresh</button>
       </div>
-      <div id="condUpdated" class="muted small"></div>
     </div>
 
-    <div id="safetyCard" class="card safety">
-      <div class="score-row">
-        <div id="scoreValue" class="score">--</div>
-        <div class="score-meta">
-          <div id="scoreBand" class="band">—</div>
-          <div class="muted small">/ 100</div>
+    <!-- Safety hero -->
+    <div id="safetyCard" class="card safety-hero">
+      <div class="safety-row">
+        <div class="score-ring">
+          <svg viewBox="0 0 120 120">
+            <circle class="track" cx="60" cy="60" r="52" stroke-width="10" fill="none"></circle>
+            <circle id="scoreBar" class="bar" cx="60" cy="60" r="52" stroke-width="10" fill="none"
+              stroke="var(--safe)" stroke-dasharray="326.7" stroke-dashoffset="326.7"></circle>
+          </svg>
+          <div class="num">
+            <div class="v" id="scoreValue">--</div>
+            <div class="o">/ 100</div>
+          </div>
+        </div>
+        <div class="safety-meta">
+          <span id="scoreBand" class="band">—</span>
+          <div id="scoreHeadline" class="safety-headline">Select a spot to see live conditions.</div>
         </div>
       </div>
       <ul id="scoreFactors" class="factors"></ul>
     </div>
 
+    <!-- Sun row -->
+    <div class="sun-row">
+      <span class="pill" id="sunriseChip">🌅 —</span>
+      <span class="pill" id="sunsetChip">🌇 —</span>
+      <span class="pill" id="dayLengthChip">⏱ —</span>
+    </div>
+
+    <!-- Tide chart -->
+    <div class="card chart-card">
+      <div class="chart-head">
+        <h3>Tide — next 24 h</h3>
+        <span class="legend" id="tideLegend">—</span>
+      </div>
+      <svg id="tideChart" class="chart" preserveAspectRatio="none"></svg>
+      <div class="tide-summary" id="tideSummary"></div>
+    </div>
+
+    <!-- Swell chart -->
+    <div class="card chart-card">
+      <div class="chart-head">
+        <h3>Swell height — next 12 h</h3>
+        <span class="legend" id="swellLegend">—</span>
+      </div>
+      <svg id="swellChart" class="chart" preserveAspectRatio="none"></svg>
+    </div>
+
+    <!-- Wind chart -->
+    <div class="card chart-card">
+      <div class="chart-head">
+        <h3>Wind — next 12 h</h3>
+        <span class="legend" id="windLegend">—</span>
+      </div>
+      <svg id="windChart" class="chart" preserveAspectRatio="none"></svg>
+    </div>
+
+    <!-- Stat grid -->
     <div class="grid">
-      <div class="card stat"><div class="stat-label">Swell</div><div id="statSwell" class="stat-value">—</div></div>
-      <div class="card stat"><div class="stat-label">Wave period</div><div id="statPeriod" class="stat-value">—</div></div>
-      <div class="card stat"><div class="stat-label">Wave height</div><div id="statWave" class="stat-value">—</div></div>
-      <div class="card stat"><div class="stat-label">Wind</div><div id="statWind" class="stat-value">—</div></div>
-      <div class="card stat"><div class="stat-label">Tide</div><div id="statTide" class="stat-value">—</div></div>
-      <div class="card stat"><div class="stat-label">Tide trend</div><div id="statTideTrend" class="stat-value">—</div></div>
+      <div class="card stat">
+        <div class="stat-label">🌊 Swell</div>
+        <div id="statSwell" class="stat-value">—</div>
+        <div id="statSwellSub" class="stat-sub"></div>
+      </div>
+      <div class="card stat">
+        <div class="stat-label">⏱ Period</div>
+        <div id="statPeriod" class="stat-value">—</div>
+        <div class="stat-sub">Lower = better for the rocks</div>
+      </div>
+      <div class="card stat">
+        <div class="stat-label">💨 Wind</div>
+        <div id="statWind" class="stat-value">—</div>
+        <div id="statWindSub" class="stat-sub"></div>
+      </div>
+      <div class="card stat">
+        <div class="stat-label">🌊 Wave height</div>
+        <div id="statWave" class="stat-value">—</div>
+        <div id="statWaveSub" class="stat-sub"></div>
+      </div>
+      <div class="card stat">
+        <div class="stat-label">🌙 Tide level</div>
+        <div id="statTide" class="stat-value">—</div>
+        <div id="statTideSub" class="stat-sub"></div>
+      </div>
+      <div class="card stat">
+        <div class="stat-label">📈 Tide trend</div>
+        <div id="statTideTrend" class="stat-value">—</div>
+        <div class="stat-sub">Sea-level change rate</div>
+      </div>
     </div>
   </section>
 
+  <!-- CATCHES -->
   <section id="tab-catches" class="tab">
     <div class="card">
       <h2>Log a catch</h2>
@@ -71,17 +149,17 @@
         </label>
         <div class="row two">
           <label>Length (cm)
-            <input id="catchLength" type="number" step="0.1" min="0" />
+            <input id="catchLength" type="number" step="0.1" min="0" inputmode="decimal" />
           </label>
           <label>Weight (kg)
-            <input id="catchWeight" type="number" step="0.01" min="0" />
+            <input id="catchWeight" type="number" step="0.01" min="0" inputmode="decimal" />
           </label>
         </div>
         <label>Bait / lure
-          <input id="catchBait" type="text" />
+          <input id="catchBait" type="text" placeholder="Cunje, pilchard, slug…" />
         </label>
         <label>Notes
-          <textarea id="catchNotes" rows="2"></textarea>
+          <textarea id="catchNotes" rows="2" placeholder="Anything worth remembering…"></textarea>
         </label>
         <label>Photo
           <input id="catchPhoto" type="file" accept="image/*" capture="environment" />
@@ -91,9 +169,9 @@
     </div>
 
     <div class="card">
-      <div class="row">
-        <h2>History</h2>
-        <input id="catchFilter" type="search" placeholder="Filter…" />
+      <div class="row" style="margin-bottom: 8px;">
+        <h2 style="margin: 0;">History</h2>
+        <input id="catchFilter" type="search" placeholder="Filter…" style="max-width: 50%;" />
       </div>
       <div id="catchList" class="catch-list"></div>
     </div>
@@ -101,9 +179,9 @@
 </main>
 
 <nav class="tabbar">
-  <button class="tab-btn active" data-tab="map">🗺️<span>Map</span></button>
-  <button class="tab-btn" data-tab="conditions">🌊<span>Conditions</span></button>
-  <button class="tab-btn" data-tab="catches">🐟<span>Catches</span></button>
+  <button class="tab-btn active" data-tab="map"><span class="ico">🗺️</span><span>Map</span></button>
+  <button class="tab-btn" data-tab="conditions"><span class="ico">🌊</span><span>Conditions</span></button>
+  <button class="tab-btn" data-tab="catches"><span class="ico">🐟</span><span>Catches</span></button>
 </nav>
 
 <dialog id="addSpotDialog">
@@ -114,8 +192,8 @@
       <label>Latitude <input id="newSpotLat" type="number" step="0.0001" required /></label>
       <label>Longitude <input id="newSpotLon" type="number" step="0.0001" required /></label>
     </div>
-    <p class="muted small">Tip: long-press the map to drop a pin and prefill these.</p>
-    <div class="row">
+    <p class="muted small" style="margin: 0;">Tip: long-press the map to drop a pin and pre-fill these.</p>
+    <div class="row" style="justify-content: flex-end; gap: 8px;">
       <button value="cancel" class="btn">Cancel</button>
       <button id="newSpotSave" value="default" class="btn primary">Save</button>
     </div>
@@ -127,6 +205,7 @@
 <script src="spots.js"></script>
 <script src="api.js"></script>
 <script src="safety.js"></script>
+<script src="charts.js"></script>
 <script src="map.js"></script>
 <script src="catches.js"></script>
 <script src="app.js"></script>

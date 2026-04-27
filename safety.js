@@ -26,7 +26,7 @@ function computeSafety(c) {
   }
   if (periodDed) {
     score -= periodDed;
-    factors.push({ label: `Wave period ${period.toFixed(0)} s (long)`, delta: -periodDed });
+    factors.push({ label: `Wave period ${period.toFixed(0)} s (long groundswell)`, delta: -periodDed });
   } else if (period > 0) {
     factors.push({ label: `Wave period ${period.toFixed(0)} s`, delta: 0, ok: true });
   }
@@ -44,17 +44,26 @@ function computeSafety(c) {
   if (c.tideTrend != null && Math.abs(c.tideTrend) > 0.15) {
     score -= 10;
     factors.push({
-      label: `Rapid tide ${c.tideTrend > 0 ? 'rise' : 'fall'}`,
+      label: `Rapid tide ${c.tideTrend > 0 ? 'rise' : 'fall'} (${Math.abs(c.tideTrend).toFixed(2)} m/h)`,
       delta: -10
     });
   }
 
   score = Math.max(0, Math.min(100, score));
-  let band, klass;
-  if (score >= 75)      { band = 'Safe';        klass = 'safe'; }
-  else if (score >= 50) { band = 'Caution';     klass = 'caution'; }
-  else if (score >= 25) { band = 'Dangerous';   klass = 'danger'; }
-  else                  { band = 'Do Not Fish'; klass = 'bad'; }
+  let band, klass, headline;
+  if (score >= 75) {
+    band = 'Safe'; klass = 'safe';
+    headline = 'Conditions look manageable. Still wear a life jacket and watch for rogue sets.';
+  } else if (score >= 50) {
+    band = 'Caution'; klass = 'caution';
+    headline = 'Workable but mixed — fish only if you know the platform and have an escape route.';
+  } else if (score >= 25) {
+    band = 'Dangerous'; klass = 'danger';
+    headline = 'Sets are heavy and the wash zone is unpredictable. Strongly consider standing down.';
+  } else {
+    band = 'Do Not Fish'; klass = 'bad';
+    headline = "Don't fish the rocks today. The risk is not worth it.";
+  }
 
-  return { score, band, klass, factors };
+  return { score, band, klass, headline, factors };
 }

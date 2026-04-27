@@ -1,4 +1,4 @@
-const CACHE = 'rfa-v1';
+const CACHE = 'rfa-v2';
 const SHELL = [
   './',
   './index.html',
@@ -7,6 +7,7 @@ const SHELL = [
   './spots.js',
   './api.js',
   './safety.js',
+  './charts.js',
   './map.js',
   './catches.js',
   './manifest.webmanifest',
